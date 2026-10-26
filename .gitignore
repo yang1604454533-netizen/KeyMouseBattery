@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.exe
+*.zip
+tray.log
+备份说明.txt
+启动 键鼠电量.cmd
