@@ -163,6 +163,23 @@ Windows 的电量值是设备上报时写入的，设备不发新值就不会更
 检查「设置 → 系统 → 通知」里是否允许 Python / 键鼠电量 的通知，并关掉「专注助手」。
 也可以用 `python battery_tray.py --test-notify` 手动验证。
 
+**双击没反应 / 右下角找不到图标**
+
+1. 先点任务栏右下角的 `^`，Win10 默认把新图标收进隐藏区
+2. 安全软件（360 / 电脑管家 / Defender）常把个人打包的 exe 静默隔离 ——
+   去隔离区恢复并加信任，或临时关掉防护再试
+3. 下载来的文件可能被标记：右键 exe → 属性 → 勾「解除锁定」
+4. 系统版本较老（Win10 1809 以前）时，用 Python 3.9 编译的兼容版：
+   Release 里的 `KeyMouseBattery-compat.exe`（Win7+ 可用，功能一致）
+5. 还是不行就跑一次诊断，把结果发出来：
+
+   ```bat
+   KeyMouseBattery.exe --diagnose
+   ```
+
+   或直接看 `%LOCALAPPDATA%\KeyMouseBattery\error.log`（崩溃时自动写入；
+   启动失败也会弹窗提示，不再静默退出）
+
 **开机自启失效**
 自启记录的是绝对路径，挪动 exe 后需要在菜单里取消再勾一次「开机自启」，
 或执行 `battery_tray.exe --install-autostart`。

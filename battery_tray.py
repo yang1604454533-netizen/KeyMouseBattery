@@ -25,6 +25,7 @@ import argparse
 import ctypes
 import json
 import os
+import platform
 import sys
 import threading
 import time
@@ -46,6 +47,7 @@ BASE_DIR = (os.path.dirname(os.path.abspath(sys.executable)) if FROZEN
 STATE_DIR = os.path.join(
     os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "KeyMouseBattery")
 STATE_FILE = os.path.join(STATE_DIR, "state.json")
+ERROR_LOG = os.path.join(STATE_DIR, "error.log")
 APP_NAME = "键鼠电量"
 MUTEX_NAME = "Local\\KeyMouseBatteryTray"
 WND_CLASS = "KeyMouseBatteryTray"
@@ -430,6 +432,8 @@ class TrayApp:
             small=not bool(cur.get("big", True)))
         nid.szTip = self._tooltip()
         ok = SHELL32.Shell_NotifyIconW(action, ctypes.byref(nid))
+        if not ok and action == NIM_ADD:
+            log_error("Shell_NotifyIconW(NIM_ADD) 失败, err=%d" % ctypes.get_last_error())
         self.log("icon %s -> %s (%s %s%%, band %s)"
                  % (action, "ok" if ok else "fail", cur["label"],
                     cur["level"], level_band(cur["level"])))
@@ -633,6 +637,36 @@ def already_running() -> bool:
     return ctypes.get_last_error() == 183
 
 
+def log_error(text: str) -> None:
+    r"""崩溃时写一行到 %LOCALAPPDATA%\KeyMouseBattery\error.log，
+    方便 exe 版（没有控制台）排查为什么双击没反应。"""
+    try:
+        os.makedirs(STATE_DIR, exist_ok=True)
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        with open(ERROR_LOG, "a", encoding="utf-8") as fh:
+            fh.write("---- %s ----\n%s\n" % (stamp, text))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def show_error(text: str, title: str = "键鼠电量") -> None:
+    """双击启动失败时弹个窗，别静默退出（exe 没有控制台，用户什么都看不到）。"""
+    try:
+        ctypes.windll.user32.MessageBoxW(None, text[-1800:], title, 0x10)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def install_excepthook() -> None:
+    import traceback
+
+    def hook(exc_type, exc, tb):
+        log_error("".join(traceback.format_exception(exc_type, exc, tb)))
+        sys.__excepthook__(exc_type, exc, tb)
+
+    sys.excepthook = hook
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--debug", action="store_true")
@@ -640,11 +674,14 @@ def main() -> int:
     ap.add_argument("--quit", action="store_true")
     ap.add_argument("--switch", type=int, default=DEFAULT_SWITCH_SECONDS,
                     help="切换间隔秒数（默认 3）")
+    ap.add_argument("--diagnose", action="store_true",
+                    help="打印环境 + 所有 BLE 设备，排查用")
     ap.add_argument("--test-notify", action="store_true",
                     help="立刻弹一条低电量通知（测试用）")
     ap.add_argument("--install-autostart", action="store_true")
     ap.add_argument("--remove-autostart", action="store_true")
     args = ap.parse_args()
+    install_excepthook()
 
     if args.install_autostart:
         print("开机自启：", "已开启" if set_autostart(True) else "失败")
@@ -652,6 +689,44 @@ def main() -> int:
     if args.remove_autostart:
         print("开机自启：", "已关闭" if set_autostart(False) else "失败")
         return 0
+    if args.diagnose:
+        print("== 环境 ==")
+        print("platform :", platform.platform())
+        try:
+            wv = sys.getwindowsversion()
+            print("windows  : %d.%d build %d" % (wv.major, wv.minor, wv.build))
+        except Exception:  # noqa: BLE001
+            pass
+        print("arch     :", platform.machine())
+        print("python   :", sys.version.split()[0])
+        print("frozen   :", FROZEN, "| exe:", sys.executable)
+        print("base_dir :", BASE_DIR)
+        print()
+        print("== BLE 设备（BTHLE 节点）==")
+        try:
+            devices = bt_battery.list_ble_devices()
+        except Exception as exc:  # noqa: BLE001
+            devices = []
+            print("枚举失败:", exc)
+        if not devices:
+            print("(没有枚举到 BLE 设备节点)")
+        for dev in devices:
+            print("  name=%-28s battery=%-5s has_prop=%-5s %s"
+                  % ((dev.name or "(无名)")[:28], dev.battery,
+                     dev.has_property, dev.reason))
+            print("    instance:", dev.instance_id)
+        print()
+        print("== 程序会显示的内容 ==")
+        for item in read_batteries():
+            print("  %s | %s | %s%% | 字号=%s"
+                  % (item["label"], item["device"] or "-", item["level"],
+                     "大" if item.get("big") else "小"))
+        print()
+        print("== 提示 ==")
+        print("· battery 全是 None → 设备不是 BLE 连接，或系统没读到电量")
+        print("· 设备都有值但看不到图标 → 图标被 Win10 收到隐藏区（点 ^ 看看）")
+        return 0
+
     if args.test_notify:
         hwnd = USER32.FindWindowW(WND_CLASS, APP_NAME)
         if not hwnd:
@@ -672,7 +747,14 @@ def main() -> int:
     if already_running():
         print("已经在运行（托盘里找 %s）" % APP_NAME)
         return 0
-    return TrayApp(debug=args.debug, switch_seconds=args.switch).run()
+    try:
+        return TrayApp(debug=args.debug, switch_seconds=args.switch).run()
+    except Exception:  # noqa: BLE001
+        import traceback
+        detail = traceback.format_exc()
+        log_error(detail)
+        show_error("启动失败，请把这个窗口截图发给开发者：\n\n" + detail)
+        return 1
 
 
 if __name__ == "__main__":
