@@ -1,31 +1,31 @@
-双击没反应 / 右下角没有数字 —— 按顺序做
+双击没反应 / 右下角没有数字 —— 请按顺序做
 ==========================================
 
-【第 1 步：换兼容版试一次】
-本文件夹里的 KeyMouseBattery-debug-compat.exe 是用 Python 3.9 编译的，
-支持到 Windows 7 以上，系统版本老也能跑。
+【第 1 步：双击 KeyMouseBattery-diagnose.exe】
+会弹出一个「诊断报告」窗口，同时用记事本打开报告文件。
+把窗口内容截图、或者把记事本里的内容复制发回来就行。
+（如果这个双击也没反应，直接看第 3 步）
 
-  · 如果这个能弹出黑色窗口并打印一堆文字 → 说明新版 exe 跟系统版本不兼容，
-    以后用名字带 -compat 的那个即可（两个版本功能完全一样）。
-  · 如果两个都没反应 → 继续第 2 步。
+【第 2 步：双击 KeyMouseBattery-debug.exe 看报错】
+这个会开一个黑色命令行窗口并打印信息，窗口不会自动关，
+把里面的文字截图发回来即可。
 
-【第 2 步：跑诊断（重要）】
-  双击「诊断.bat」，会弹出一个记事本，里面是系统信息 + 两个版本的自检结果。
-  把这个「诊断结果.txt」发回来就能定位。
+【第 3 步：如果所有 exe 双击都没反应】
+说明程序被拦截或系统版本不兼容，按下面查：
+  a) 换 KeyMouseBattery-diagnose-compat.exe / KeyMouseBattery-debug-compat.exe 再试
+     （这两个是用 Python 3.9 编译的兼容版，Windows 7 以上都能跑）
+  b) 找杀毒软件：360 安全卫士 / 腾讯电脑管家 / Defender 会静默隔离
+     "个人打包的 exe"，去隔离区恢复并加入信任，或临时关闭防护再试
+  c) 右键 exe → 属性 → 底部勾「解除锁定」→ 确定
+  d) 务必先把压缩包完整解压出来再运行，不要在压缩包里直接双击
 
-【第 3 步：看是不是被杀毒软件拦了】
-  这是最常见的原因：360 安全卫士 / 腾讯电脑管家 / Defender 会把
-  "个人打包的 exe" 直接静默隔离，表现就是双击完全没反应。
-  · 打开安全软件的「隔离区 / 防护日志」，看有没有 KeyMouseBattery / 键鼠电量
-  · 有的话：恢复并加入信任
-  · 或者临时退出安全软件，再双击试一次
+【文件说明】
+  KeyMouseBattery-diagnose.exe          双击出诊断报告（新版，首选）
+  KeyMouseBattery-diagnose-compat.exe   同上，兼容版（Win7+）
+  KeyMouseBattery-debug.exe             带黑窗，能看到运行过程（新版）
+  KeyMouseBattery-debug-compat.exe      同上，兼容版（Win7+）
 
-【两种文件说明】
-  KeyMouseBattery-debug.exe          新版（Python 3.13），带黑色窗口，能看报错
-  KeyMouseBattery-debug-compat.exe   兼容版（Python 3.9），带黑色窗口，Win7+ 都能跑
-
-【补充检查】
-  · 任务管理器（Ctrl+Shift+Esc）→ 详细信息，看有没有 KeyMouseBattery 进程：
-      有进程 → 图标问题，去任务栏 ^ 隐藏区找
-      没进程 → 程序没起来，按第 2、3 步查
-  · 从网上下载的文件可能被标记：右键 exe → 属性 → 勾「解除锁定」→ 确定
+【顺便看一眼】
+  任务管理器（Ctrl+Shift+Esc）→ 详细信息，有没有 KeyMouseBattery / 键鼠电量 进程：
+    有进程 → 程序起来了，只是图标被 Win10 收进了隐藏区（点任务栏 ^ 找）
+    没进程 → 程序没起来，就是第 3 步的问题

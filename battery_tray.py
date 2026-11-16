@@ -690,41 +690,67 @@ def main() -> int:
         print("开机自启：", "已关闭" if set_autostart(False) else "失败")
         return 0
     if args.diagnose:
-        print("== 环境 ==")
-        print("platform :", platform.platform())
+        lines = []
+        out = lines.append
+        out("== 环境 ==")
+        out("platform : " + platform.platform())
         try:
             wv = sys.getwindowsversion()
-            print("windows  : %d.%d build %d" % (wv.major, wv.minor, wv.build))
+            out("windows  : %d.%d build %d" % (wv.major, wv.minor, wv.build))
         except Exception:  # noqa: BLE001
             pass
-        print("arch     :", platform.machine())
-        print("python   :", sys.version.split()[0])
-        print("frozen   :", FROZEN, "| exe:", sys.executable)
-        print("base_dir :", BASE_DIR)
-        print()
-        print("== BLE 设备（BTHLE 节点）==")
+        out("arch     : " + platform.machine())
+        out("python   : " + sys.version.split()[0])
+        out("frozen   : %s | exe: %s" % (FROZEN, sys.executable))
+        out("base_dir : " + BASE_DIR)
+        out("")
+        out("== BLE 设备（BTHLE 节点）==")
         try:
             devices = bt_battery.list_ble_devices()
         except Exception as exc:  # noqa: BLE001
             devices = []
-            print("枚举失败:", exc)
+            out("枚举失败: %s" % exc)
         if not devices:
-            print("(没有枚举到 BLE 设备节点)")
+            out("(没有枚举到 BLE 设备节点)")
         for dev in devices:
-            print("  name=%-28s battery=%-5s has_prop=%-5s %s"
-                  % ((dev.name or "(无名)")[:28], dev.battery,
-                     dev.has_property, dev.reason))
-            print("    instance:", dev.instance_id)
-        print()
-        print("== 程序会显示的内容 ==")
+            out("  name=%-28s battery=%-5s has_prop=%-5s %s"
+                % ((dev.name or "(无名)")[:28], dev.battery,
+                   dev.has_property, dev.reason))
+            out("    instance: " + (dev.instance_id or ""))
+        out("")
+        out("== 程序会显示的内容 ==")
         for item in read_batteries():
-            print("  %s | %s | %s%% | 字号=%s"
-                  % (item["label"], item["device"] or "-", item["level"],
-                     "大" if item.get("big") else "小"))
-        print()
-        print("== 提示 ==")
-        print("· battery 全是 None → 设备不是 BLE 连接，或系统没读到电量")
-        print("· 设备都有值但看不到图标 → 图标被 Win10 收到隐藏区（点 ^ 看看）")
+            out("  %s | %s | %s%% | 字号=%s"
+                % (item["label"], item["device"] or "-", item["level"],
+                   "大" if item.get("big") else "小"))
+        out("")
+        out("== 提示 ==")
+        out("- battery 全是 None：设备不是 BLE 连接，或系统没读到电量")
+        out("- 设备都有值但看不到图标：图标被 Win10 收进隐藏区（点 ^ 看看）")
+
+        report = "\n".join(lines)
+        diag_path = os.path.join(STATE_DIR, "diagnose.txt")
+        try:
+            os.makedirs(STATE_DIR, exist_ok=True)
+            with open(diag_path, "w", encoding="utf-8") as fh:
+                fh.write(report + "\n")
+        except Exception:  # noqa: BLE001
+            diag_path = "(保存失败)"
+
+        print(report)
+        if FROZEN:
+            # 无控制台版：弹窗展示报告 + 顺手用记事本打开，直接截图或复制即可
+            show_error(report + "\n\n报告已保存到:\n" + diag_path,
+                       "键鼠电量 诊断报告")
+            try:
+                os.startfile(diag_path)
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            try:
+                input("\n按回车退出...")
+            except Exception:  # noqa: BLE001
+                pass
         return 0
 
     if args.test_notify:
